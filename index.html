@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamLens AI - Diagnose Your Prep</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="logo">ExamLens AI</div>
+            <nav>
+                <button class="btn btn-outline" data-target="view-landing">Home</button>
+                <button class="btn btn-primary" data-target="view-dashboard">Dashboard</button>
+                <button class="btn btn-outline" style="margin-left:10px" data-target="view-chat">AI Doubt Solver</button>
+                <button class="btn btn-outline" style="margin-left:10px" data-target="view-teach-ai">Teach AI</button>
+            </nav>
+        </header>
+
+        <!-- Landing View -->
+        <main id="view-landing" class="view active">
+            <section class="hero">
+                <h1>Stop Guessing. <span style="color: var(--primary-color)">Start Diagnosing.</span></h1>
+                <p>An AI-powered platform that doesn't just test you — it diagnoses your cognitive gaps and builds a hyper-personalized study plan to help you ace CBSE, JEE, and NEET.</p>
+                <button class="btn btn-primary btn-lg" style="font-size: 1.2rem; padding: 15px 30px;" data-target="view-dashboard">Start Your Diagnosis</button>
+            </section>
+
+            <div class="dashboard-grid" style="margin-top: 60px;">
+                <div class="glass-panel text-center">
+                    <h3 style="color: var(--primary-color); font-size: 2rem;">20M+</h3>
+                    <p class="text-muted">Students Competing</p>
+                </div>
+                <div class="glass-panel text-center">
+                    <h3 style="color: var(--secondary-color); font-size: 2rem;">98%</h3>
+                    <p class="text-muted">Accuracy in Weak-Spot Detection</p>
+                </div>
+                <div class="glass-panel text-center">
+                    <h3 style="color: var(--accent-color); font-size: 2rem;">10x</h3>
+                    <p class="text-muted">Faster Revision</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Dashboard / Quiz Setup View -->
+        <main id="view-dashboard" class="view">
+            <h2>Your Dashboard</h2>
+            <div class="glass-panel" style="margin-top: 20px; max-width: 600px;">
+                <h3>Start a Diagnostic Test</h3>
+                <p class="text-muted" style="margin-bottom: 20px;">Select your exam and subject to map your cognitive gaps.</p>
+                
+                <select id="exam-select" style="width: 100%; padding: 10px; margin-bottom: 20px; background: var(--surface-color); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                    <!-- Populated by JS -->
+                </select>
+
+                <select id="subject-select" style="width: 100%; padding: 10px; margin-bottom: 20px; background: var(--surface-color); color: white; border: 1px solid var(--glass-border); border-radius: 8px; display: none;">
+                    <option value="">All Subjects (Full Mock Test)</option>
+                </select>
+
+                <button id="start-quiz-btn" class="btn btn-primary" style="width: 100%;">Begin Test</button>
+            </div>
+        </main>
+
+        <!-- Active Quiz View -->
+        <main id="view-quiz-active" class="view">
+            <h2>Diagnostic Test in Progress</h2>
+            <div id="quiz-container">
+                <!-- Populated by JS -->
+            </div>
+        </main>
+
+        <!-- Results View -->
+        <main id="view-results" class="view">
+            <h2>Test Complete! Here is your Diagnosis</h2>
+            
+            <div class="glass-panel" style="margin-top: 20px; text-align: center;">
+                <h3 style="font-size: 2rem; color: var(--primary-color)">Score: <span id="final-score"></span></h3>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="glass-panel">
+                    <h3>Cognitive Gap Heatmap</h3>
+                    <p class="text-muted" style="font-size: 0.9rem;">Red indicates critical weak spots.</p>
+                    <div id="heatmap-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="glass-panel">
+                    <h3>AI Study Plan</h3>
+                    <p class="text-muted" style="font-size: 0.9rem;">Generated based on your weak spots.</p>
+                    <div id="study-plan">
+                        <!-- Populated by JS -->
+                    </div>
+                    <button class="btn btn-primary" style="margin-top: 20px; width:100%" data-target="view-dashboard">Accept Plan & Return</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- AI Chat View -->
+        <main id="view-chat" class="view">
+            <h2>AI Doubt Solver</h2>
+            <p class="text-muted" style="margin-bottom: 20px;">Ask any question or concept you're struggling with.</p>
+            
+            <div class="glass-panel chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-msg msg-ai">Hello! I am ExamLens AI. What topic or problem can I help you understand today?</div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type your doubt here...">
+                    <button id="send-btn" class="btn btn-primary">Send</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Teach AI View -->
+        <main id="view-teach-ai" class="view">
+            <h2>Teach the AI (Feynman Technique)</h2>
+            <p class="text-muted" style="margin-bottom: 20px;">The best way to learn is to teach. Explain a concept in your own words, and I'll grade your understanding.</p>
+            
+            <div class="glass-panel">
+                <input type="text" id="teach-topic" placeholder="What topic are you teaching me? (e.g., Photosynthesis, Newton's First Law)" style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-color); color: white;">
+                
+                <textarea id="teach-explanation" rows="8" placeholder="Explain the concept here as simply as you can. Pretend you are teaching a 10-year-old..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-color); color: white; resize: vertical;"></textarea>
+                
+                <button id="submit-teaching-btn" class="btn btn-primary" style="width: 100%;">Submit Explanation</button>
+            </div>
+
+            <div id="teach-feedback-container" style="display: none; margin-top: 20px;">
+                <h3>AI Evaluation</h3>
+                <div class="glass-panel" id="teach-feedback-content" style="border-left: 4px solid var(--accent-color);">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // API Configuration
-    const OPENROUTER_API_KEY = "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";
-    const OR_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct:free";
+    // Do NOT hardcode API keys here! It will be fetched via Vercel serverless function.
 
     // Navigation
     const views = document.querySelectorAll('.view');
@@ -49,40 +48,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let score = 0;
     let selectedExamId = '';
 
-    // OpenRouter API Helper
+    // Vercel Serverless API Helper
     async function fetchFromOpenRouter(systemPrompt, userPrompt, isJson = false) {
         try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    model: OR_MODEL,
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userPrompt }
-                    ]
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    isJson: isJson
                 })
             });
             const data = await response.json();
-            if(!data.choices || !data.choices[0]) throw new Error("Invalid API Response");
             
-            let text = data.choices[0].message.content;
-            
-            // Anti-leak: Strip <think> and <thought> tags completely
-            text = text.replace(/<(think|thought)>[\s\S]*?<\/\1>/gi, '').trim();
-            
-            if (isJson) {
-                const jsonMatch = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
-                if (jsonMatch) text = jsonMatch[1];
-                return JSON.parse(text);
+            if (!response.ok) {
+                throw new Error(data.error || "API Error");
             }
-            return text;
+
+            return isJson ? data : data.text;
         } catch (e) {
-            console.error("OpenRouter API Error:", e);
-            return isJson ? { score: 1, feedback: "Error connecting to AI. Please try again." } : "Error connecting to AI. Please try again.";
+            console.error("API Error:", e);
+            return isJson ? { score: 1, feedback: "Error connecting to AI backend. Please check Vercel environment variables." } : "Error connecting to AI backend. Please check Vercel environment variables.";
         }
     }
 

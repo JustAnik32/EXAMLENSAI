@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // API Configuration
+    const OPENROUTER_API_KEY = "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";
+    const OR_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct:free";
+
     // Navigation
     const views = document.querySelectorAll('.view');
     const navLinks = document.querySelectorAll('[data-target]');
@@ -25,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
             examData.exams.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
     }
 
-    // When exam changes, populate subjects
     if (examSelect && subjectSelect) {
         examSelect.addEventListener('change', () => {
             const examId = examSelect.value;
@@ -46,6 +49,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let score = 0;
     let selectedExamId = '';
 
+    // OpenRouter API Helper
+    async function fetchFromOpenRouter(systemPrompt, userPrompt, isJson = false) {
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: OR_MODEL,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userPrompt }
+                    ]
+                })
+            });
+            const data = await response.json();
+            if(!data.choices || !data.choices[0]) throw new Error("Invalid API Response");
+            
+            let text = data.choices[0].message.content;
+            
+            // Anti-leak: Strip <think> and <thought> tags completely
+            text = text.replace(/<(think|thought)>[\s\S]*?<\/\1>/gi, '').trim();
+            
+            if (isJson) {
+                const jsonMatch = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
+                if (jsonMatch) text = jsonMatch[1];
+                return JSON.parse(text);
+            }
+            return text;
+        } catch (e) {
+            console.error("OpenRouter API Error:", e);
+            return isJson ? { score: 1, feedback: "Error connecting to AI. Please try again." } : "Error connecting to AI. Please try again.";
+        }
+    }
+
     const startQuizBtn = document.getElementById('start-quiz-btn');
     if (startQuizBtn) {
         startQuizBtn.addEventListener('click', () => {
@@ -56,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const subjectId = subjectSelect.value;
             let questions = [...examData.questions[examId]];
 
-            // Filter by subject if selected
             if (subjectId) {
                 questions = questions.filter(q => q.subject === subjectId);
             }
@@ -140,18 +179,16 @@ document.addEventListener('DOMContentLoaded', () => {
         generateStudyPlan();
     }
 
-    // Heatmap
     function renderHeatmap() {
         const heatmap = document.getElementById('heatmap-container');
         if (!heatmap) return;
 
-        // Group by topic and calculate performance
         const topicMap = {};
-        currentQuiz.forEach((q, i) => {
+        currentQuiz.forEach((q) => {
             if (!topicMap[q.topic]) topicMap[q.topic] = { correct: 0, total: 0 };
             topicMap[q.topic].total++;
         });
-        // Simulate random performance for demo
+        
         Object.keys(topicMap).forEach(t => {
             topicMap[t].correct = Math.floor(Math.random() * (topicMap[t].total + 1));
         });
@@ -166,18 +203,14 @@ document.addEventListener('DOMContentLoaded', () => {
         heatmap.innerHTML = html;
     }
 
-    // Study Plan
     function generateStudyPlan() {
         const planContainer = document.getElementById('study-plan');
         if (!planContainer) return;
 
         const weakTopics = [];
         currentQuiz.forEach(q => {
-            if (!weakTopics.includes(q.topic) && Math.random() < 0.5) {
-                weakTopics.push(q.topic);
-            }
+            if (!weakTopics.includes(q.topic) && Math.random() < 0.5) weakTopics.push(q.topic);
         });
-
         if (weakTopics.length === 0) weakTopics.push(currentQuiz[0].topic);
 
         let html = '<ul style="list-style:none; padding:0; margin-top:20px;">';
@@ -196,24 +229,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
     const messages = document.getElementById('chat-messages');
 
+    function appendMessage(sender, text, className) {
+        messages.innerHTML += `<div class="chat-msg ${className}"><strong>${sender}:</strong> ${text}</div>`;
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function handleChat() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        
+        appendMessage('You', text, 'msg-user');
+        chatInput.value = '';
+
+        const typingId = 'typing-' + Date.now();
+        messages.innerHTML += `<div id="${typingId}" class="chat-msg msg-ai">ExamLens AI is thinking...</div>`;
+        messages.scrollTop = messages.scrollHeight;
+
+        const systemPrompt = "You are ExamLens AI, an expert, encouraging tutor for CBSE, JEE, and NEET students. Keep answers concise, clear, and focused on Indian competitive exams. NEVER output <think> or <thought> tags.";
+        const responseText = await fetchFromOpenRouter(systemPrompt, text, false);
+        
+        const typingIndicator = document.getElementById(typingId);
+        if (typingIndicator) typingIndicator.remove();
+        
+        appendMessage('ExamLens AI', responseText, 'msg-ai');
+    }
+
     if (sendBtn && chatInput && messages) {
         sendBtn.addEventListener('click', handleChat);
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleChat();
         });
-    }
-
-    function handleChat() {
-        const text = chatInput.value.trim();
-        if (!text) return;
-        messages.innerHTML += `<div class="chat-msg msg-user">${text}</div>`;
-        chatInput.value = '';
-        messages.scrollTop = messages.scrollHeight;
-
-        setTimeout(() => {
-            messages.innerHTML += `<div class="chat-msg msg-ai">Great question about "${text}"! Let me break it down step-by-step for you. The key concept here involves understanding the fundamental principles first, then applying them to solve problems. (Simulated AI Response — connect a real API like Gemini for production use.)</div>`;
-            messages.scrollTop = messages.scrollHeight;
-        }, 1000);
     }
 
     // Teach AI Logic
@@ -224,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const teachFeedbackContent = document.getElementById('teach-feedback-content');
 
     if (teachBtn) {
-        teachBtn.addEventListener('click', () => {
+        teachBtn.addEventListener('click', async () => {
             const topic = teachTopic.value.trim();
             const expl = teachExpl.value.trim();
 
@@ -237,50 +282,42 @@ document.addEventListener('DOMContentLoaded', () => {
             teachBtn.textContent = 'Analyzing your explanation...';
             teachFeedbackContainer.style.display = 'none';
 
-            setTimeout(() => {
+            const wordCount = expl.split(/\s+/).filter(w => w.length > 0).length;
+
+            if (wordCount < 10) {
+                teachFeedbackContainer.style.display = 'block';
+                teachFeedbackContent.innerHTML = `
+                    <h4 style="color: var(--danger-color); margin-bottom: 10px; font-size: 1.2rem;">Understanding Score: 1/10</h4>
+                    <p style="margin-bottom: 10px;"><strong>❌ Explanation Too Short:</strong> Your explanation is very brief. It's hard to gauge your understanding.</p>
+                    <p><strong>📝 Action:</strong> Please try explaining the concept of "${topic}" in more detail, as if you were teaching it to a beginner.</p>
+                `;
                 teachBtn.disabled = false;
                 teachBtn.textContent = 'Submit Explanation';
-                teachFeedbackContainer.style.display = 'block';
+                return;
+            }
 
-                const wordCount = expl.split(/\s+/).length;
-                let uScore;
+            const systemPrompt = `You are a strict but fair examiner evaluating a student who is trying to learn by teaching you a concept (The Feynman Technique).
+CRITICAL INSTRUCTION: You MUST respond ONLY with a raw JSON object and nothing else. NO markdown formatting, NO <think> tags.
+Format exactly like this:
+{ "score": [number 1-10], "feedback": "[your constructive feedback explaining what they got right, what they missed, and how to improve]" }`;
 
-                if (wordCount < 10) {
-                    uScore = Math.floor(Math.random() * 2) + 1; // 1-2
-                    teachFeedbackContent.innerHTML = `
-                        <h4 style="color: var(--danger-color); margin-bottom: 10px; font-size: 1.2rem;">Understanding Score: ${uScore}/10</h4>
-                        <p style="margin-bottom: 10px;"><strong>❌ Explanation Too Short:</strong> Your explanation is very brief ("${expl}"). It's hard to gauge your understanding.</p>
-                        <p><strong>📝 Action:</strong> Please try explaining the concept of "${topic}" in more detail, as if you were teaching it to a beginner.</p>
-                    `;
-                    return;
-                }
+            const userPrompt = `Topic: ${topic}\nExplanation: ${expl}`;
 
-                const explLower = expl.toLowerCase();
-                const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                const hasRelevance = topicWords.length === 0 || topicWords.some(w => explLower.includes(w));
+            const aiResult = await fetchFromOpenRouter(systemPrompt, userPrompt, true);
+            
+            let uScore = aiResult.score || 1;
+            let feedbackText = aiResult.feedback || "Unable to process feedback.";
 
-                if (!hasRelevance && wordCount < 20) {
-                    uScore = Math.floor(Math.random() * 2) + 3; // 3-4
-                    teachFeedbackContent.innerHTML = `
-                        <h4 style="color: var(--danger-color); margin-bottom: 10px; font-size: 1.2rem;">Understanding Score: ${uScore}/10</h4>
-                        <p style="margin-bottom: 10px;"><strong>⚠️ Needs Focus:</strong> Your explanation doesn't clearly address the core aspects of "${topic}".</p>
-                        <p><strong>📝 Action:</strong> Review your material and make sure you hit the key keywords related to this topic.</p>
-                    `;
-                    return;
-                }
+            const scoreColor = uScore >= 8 ? 'var(--success-color)' : uScore >= 5 ? 'var(--accent-color)' : 'var(--danger-color)';
 
-                uScore = wordCount > 40 ? Math.floor(Math.random() * 2) + 8 : Math.floor(Math.random() * 3) + 5;
-                if (uScore > 10) uScore = 10;
-
-                const scoreColor = uScore >= 8 ? 'var(--success-color)' : uScore >= 5 ? 'var(--accent-color)' : 'var(--danger-color)';
-
-                teachFeedbackContent.innerHTML = `
-                    <h4 style="color: ${scoreColor}; margin-bottom: 10px; font-size: 1.5rem; text-shadow: 0 0 10px ${scoreColor}40;">Understanding Score: ${uScore}/10</h4>
-                    <p style="margin-bottom: 10px;"><strong>✅ What you got right:</strong> Your explanation of "${topic}" demonstrates a ${uScore >= 7 ? 'solid' : 'basic'} grasp of the core idea. ${wordCount > 30 ? 'You provided a detailed explanation, which is great!' : 'Try adding more detail next time.'}</p>
-                    <p style="margin-bottom: 10px;"><strong>⚠️ The Gap:</strong> Consider whether you covered the edge cases, exceptions, or real-world applications. For "${topic}", think about what happens at boundary conditions or how it connects to related topics.</p>
-                    <p><strong>📝 Next Step:</strong> Re-read the "${topic}" section in your textbook, then try explaining it again without looking at notes. Repetition strengthens memory!</p>
-                `;
-            }, 2000);
+            teachFeedbackContent.innerHTML = `
+                <h4 style="color: ${scoreColor}; margin-bottom: 10px; font-size: 1.5rem; text-shadow: 0 0 10px ${scoreColor}40;">Understanding Score: ${uScore}/10</h4>
+                <p style="margin-bottom: 10px;">${feedbackText}</p>
+            `;
+            
+            teachFeedbackContainer.style.display = 'block';
+            teachBtn.disabled = false;
+            teachBtn.textContent = 'Submit Explanation';
         });
     }
 });

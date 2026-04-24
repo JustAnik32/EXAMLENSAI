@@ -1,0 +1,10 @@
+{
+  "name": "examlens-ai",
+  "version": "1.0.0",
+  "description": "ExamLens AI platform",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve ."
+  },
+  "dependencies": {}
+}
